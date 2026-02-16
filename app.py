@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ==================================================
-# PAGE CONFIG (ONLY ONCE, AT TOP)
+# PAGE CONFIG
 # ==================================================
 st.set_page_config(
     page_title="MovieAddict",
@@ -13,13 +13,13 @@ st.set_page_config(
 )
 
 # ==================================================
-# LOAD ARTIFACTS (MATCH YOUR PKL FILES)
+# LOAD ARTIFACTS
 # ==================================================
 @st.cache_resource
 def load_artifacts():
     movies = pickle.load(open("movies.pkl", "rb"))
     vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
-    X = pickle.load(open("count_matrix.pkl", "rb"))  # ✅ correct
+    X = pickle.load(open("count_matrix.pkl", "rb"))
     return movies, vectorizer, X
 
 movies, vectorizer, X = load_artifacts()
@@ -30,11 +30,8 @@ movies, vectorizer, X = load_artifacts()
 def recommend_similar_movies(title, top_n=8):
     title = title.lower().strip()
     idx = movies[movies["title_clean"] == title].index[0]
-
-    # ✅ ON-DEMAND cosine similarity (NO FULL MATRIX)
     scores = cosine_similarity(X[idx], X).flatten()
-    similar_indices = np.argsort(scores)[::-1][1:top_n+1]
-
+    similar_indices = np.argsort(scores)[::-1][1: top_n + 1]
     return movies.iloc[similar_indices]["title"].tolist()
 
 
@@ -60,6 +57,20 @@ def popular_movies(top_n=8):
         )
     return movies["title"].head(top_n).tolist()
 
+
+def top_movies_by_genre(genre, top_n=10, sort_col="popularity"):
+    mask = movies["genres"].str.contains(genre, case=False, na=False)
+
+    if sort_col in movies.columns:
+        return (
+            movies[mask]
+            .sort_values(sort_col, ascending=False)["title"]
+            .head(top_n)
+            .tolist()
+        )
+
+    return movies[mask]["title"].head(top_n).tolist()
+
 # ==================================================
 # STYLING
 # ==================================================
@@ -83,9 +94,7 @@ st.markdown(
 # HEADER
 # ==================================================
 st.markdown("## 🎬 MoViE-AdDict")
-st.caption(
-    "A content-based movie recommender built using NLP & cosine similarity"
-)
+st.caption("A content-based movie recommender built using NLP & cosine similarity")
 st.caption("Internship Project")
 
 # ==================================================
@@ -100,6 +109,7 @@ mode = st.sidebar.radio(
         "Similar Movies (Content-Based)",
         "Search (Description / Genre)",
         "Popular & Trending",
+        "Top Movies by Genre",
     ],
 )
 
@@ -152,6 +162,26 @@ elif mode == "Search (Description / Genre)":
 
         for m in results:
             st.markdown(f"<div class='card'>🎬 {m}</div>", unsafe_allow_html=True)
+
+elif mode == "Top Movies by Genre":
+    st.subheader("🎭 Top Movies by Genre")
+
+    genre_list = [
+        "Action", "Adventure", "Animation", "Comedy", "Crime",
+        "Drama", "Family", "Fantasy", "Horror", "Mystery",
+        "Romance", "Science Fiction", "Thriller", "War", "Western"
+    ]
+
+    selected_genre = st.selectbox("Choose a genre", genre_list)
+    st.markdown(f"### 🔥 Top {top_n} {selected_genre} Movies")
+
+    results = top_movies_by_genre(selected_genre, top_n)
+
+    if results:
+        for m in results:
+            st.markdown(f"<div class='card'>🎬 {m}</div>", unsafe_allow_html=True)
+    else:
+        st.warning("No movies found for this genre.")
 
 else:
     st.subheader("Popular & Trending")
